@@ -3,6 +3,6 @@
 ## Todo list
 
 - [x] Add data simulation
-- [ ] Add basic POMDP
+- [x] Add basic POMDP
 - [ ] Upgrade pymc3 -> pymc5
 

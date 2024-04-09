@@ -1,6 +1,10 @@
 import numpy as np
+import pymc3 as pm
+import arviz as az
+import matplotlib.pyplot as plt
 from pcn_graphs import load_graph
 from data_simulation import mdp_sequences
+from models import define_model
 
 
 if __name__ == '__main__':
@@ -37,10 +41,30 @@ if __name__ == '__main__':
     # generate data points
     sequences = mdp_sequences(loop_graph, p_transitions, mus, sigmas, num_iterations=1000)
 
-    print(sequences)
-
     # define model
+    model = define_model(n_states, 2, sequences)
 
     # MCMC inference
+    with model:
+        nuts_step = pm.NUTS([model.sigma, model.mu, model.p_transition, model.init_probs], target_accept=0.9)
+        trace = pm.sample(2000, step=[nuts_step], return_inferencedata=False)
 
     # plot results
+    az.plot_trace(trace, var_names=["p_transition"], divergences=False)
+    plt.show()
+
+    az.plot_trace(trace, var_names=["mu", "sigma"], divergences=False)
+    plt.show()
+
+    az.plot_forest(trace, var_names=["mu", "sigma"])
+    plt.show()
+
+    az.plot_posterior(trace, var_names=["p_transition"])
+    plt.show()
+
+    select_idx = 0
+    fig, ax = plt.subplots(figsize=(12, 4))
+    plt.plot(np.round(trace["hmm_states_{}".format(select_idx)].mean(axis=0)), label="estimates")
+    plt.plot(np.array(sequences['states'][select_idx]), label="true")
+    plt.legend()
+    plt.show()
