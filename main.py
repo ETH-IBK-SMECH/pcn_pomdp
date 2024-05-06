@@ -1,5 +1,7 @@
 import numpy as np
 import pymc3 as pm
+from fastprogress.fastprogress import force_console_behavior
+master_bar, progress_bar = force_console_behavior()
 import arviz as az
 import matplotlib.pyplot as plt
 from pcn_graphs import load_graph
@@ -8,6 +10,26 @@ from models import define_model
 
 
 if __name__ == '__main__':
+
+    # Use the code below to inspect prior transition matrices
+    """
+    # degradation prior
+    n_states = 3
+    min_prior = 0.2
+    a = np.full(shape=(n_states, n_states), fill_value=min_prior) + np.diag((7 - min_prior) * np.ones(n_states)) + np.diag(
+        (1 - min_prior) * np.ones(n_states - 1), k=1),
+    samples_0 = pm.Dirichlet.dist(a=a).random(size=5000)
+    az.plot_posterior(samples_0[np.newaxis])
+    plt.show()
+
+    # repair prior
+    a = np.full(shape=(n_states, n_states), fill_value=min_prior) + np.tril(
+        np.arange(n_states ** 2)[::-1].reshape(n_states, n_states).T + 1 - min_prior),
+    samples_0 = pm.Dirichlet.dist(a=a).random(size=5000)
+    az.plot_posterior(samples_0[np.newaxis])
+    plt.show()
+    exit()
+    #"""
 
     # Load PCN sub-loop
     loop_graph = load_graph(38, visualize=False)
@@ -34,8 +56,8 @@ if __name__ == '__main__':
     # homoscedastic emission process
     mus = np.arange(n_states)
     # uncertainty is the highest when the state is half way between the two extremes
-    min_var = 0.1
-    max_var = 1.
+    min_var = 1e-3
+    max_var = 1e-2
     sigmas = (min_var + (max_var - min_var) * np.sin(np.pi * np.arange(n_states) / (n_states-1))**2)
 
     # generate data points
