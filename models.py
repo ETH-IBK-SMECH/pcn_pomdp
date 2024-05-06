@@ -77,17 +77,49 @@ def define_model(n_states, n_actions, sequences):
     n_nodes = sequences['states'].shape[0]
 
     with pm.Model() as model:
-        transition_mat = pm.Dirichlet(
-            "p_transition",
-            a=tt.ones((n_actions, n_states, n_states)),
-            shape=(n_actions, n_states, n_states))
+
+        min_prior = 0.2
+        transition_mat_0 = pm.Dirichlet(
+            'p_degradation',
+            a=np.full(shape=(n_states, n_states), fill_value=min_prior) + np.diag((7 - min_prior) * np.ones(n_states)) + np.diag((1 - min_prior) * np.ones(n_states - 1), k=1),
+            shape=(n_states, n_states)
+        )
+
+        transition_mat_1 = pm.Dirichlet(
+            'p_repair',
+            a=np.full(shape=(n_states, n_states), fill_value=min_prior) + np.tril(np.arange(n_states**2)[::-1].reshape(n_states, n_states).T + 1 - min_prior),
+            shape=(n_states, n_states)
+        )
+
+        transition_mat = pm.Deterministic("p_transition",
+                                          tt.stack([transition_mat_0, transition_mat_1]))
 
         init_probs = pm.Dirichlet('init_probs', a=tt.ones((n_states,)), shape=n_states)
 
         # Prior for mu, sigma and k
-        mu_estimator = pm.Normal("mu", mu=[0.5] * n_states, sigma=1,
+        mu_estimator = pm.Normal("mu", mu=np.arange(n_states), sigma=0.5,
                                  shape=(n_states,))  # different priors for the state Normal dist
-        sigma_estimator = pm.Exponential("sigma", lam=2, shape=(n_states,))
+        sigma_estimator = pm.Exponential("sigma", lam=3, shape=(n_states,))
+
+        """
+        hmm_states = HMMStates(
+                "hmm_states",
+                p_transition=transition_mat,
+                init_prob=init_probs,
+                n_states=n_states,
+                actions=sequences['actions'],
+                shape=sequences['actions'].shape
+            )
+
+        obs = HMMGaussianEmissions(
+            "emissions",
+            states=hmm_states,
+            mu=mu_estimator,
+            sigma=sigma_estimator,
+            observed=sequences['emissions'],
+            testval=sequences['emissions'][~np.isnan(sequences['emissions'])].mean()
+        )
+        """
 
         for i in range(n_nodes):
             # HMM state
